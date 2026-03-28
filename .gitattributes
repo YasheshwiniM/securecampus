@@ -1,2 +1,70 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+{
+  "name": "securecampus",
+  "version": "1.0.0",
+  "description": "SecureCampus - Biometric Student Access System",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
+
+#server
+const express = require('express');
+const path = require('path');
+
+const app = express();
+const PORT = 3000;
+
+// In-memory student store
+const students = {};
+
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Register
+app.post('/api/register', (req, res) => {
+  const { name, studentId, password } = req.body;
+  if (!name || !studentId || !password)
+    return res.status(400).json({ error: 'All fields are required.' });
+  if (students[studentId])
+    return res.status(409).json({ error: 'Student ID already registered.' });
+  students[studentId] = { name, password };
+  res.json({ message: 'Registration successful!' });
+});
+
+// Login
+app.post('/api/login', (req, res) => {
+  const { studentId, password } = req.body;
+  const student = students[studentId];
+  if (!student || student.password !== password)
+    return res.status(401).json({ error: 'Invalid Student ID or password.' });
+  res.json({ message: 'Login successful!', name: student.name, studentId });
+});
+
+// Biometric simulation
+app.post('/api/biometric', (req, res) => {
+  const { studentId } = req.body;
+  if (!students[studentId])
+    return res.status(404).json({ error: 'Student not found.' });
+  setTimeout(() => {
+    res.json({ verified: true, message: 'Biometric Verified ✓' });
+  }, 1800);
+});
+
+// Access log
+app.post('/api/access', (req, res) => {
+  const { studentId, resource } = req.body;
+  const student = students[studentId];
+  if (!student)
+    return res.status(404).json({ error: 'Student not found.' });
+  const timestamp = new Date().toLocaleTimeString();
+  console.log(`[${timestamp}] ${student.name} (${studentId}) → accessed ${resource}`);
+  res.json({ message: `Access granted to ${resource}`, timestamp });
+});
+
+app.listen(PORT, () => {
+  console.log(`\n🔐 SecureCampus running at http://localhost:${PORT}\n`);
+});
